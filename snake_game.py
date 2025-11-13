@@ -5,21 +5,28 @@ import random
 CELL_SIZE = 20
 GRID_WIDTH = 30
 GRID_HEIGHT = 20
-SPEED = 100  # ms per move
+
+BASE_SPEED = 400   # start slower (1/4 of original 100ms)
+MIN_SPEED = 80     # never go faster than this
+SPEED_INCREASE = 5 # reduce delay by this amount each time food is eaten
+
 
 class SnakeGame:
     def __init__(self, root):
         self.root = root
         self.root.title("Very Simple Snake")
 
-        # Score variable
+        # Score
         self.score = 0
 
-        # Scoreboard label
+        # Starting speed
+        self.speed = BASE_SPEED
+
+        # Scoreboard
         self.score_label = tk.Label(root, text=f"Score: {self.score}", font=("Arial", 14))
         self.score_label.pack()
 
-        # Game canvas
+        # Canvas
         self.canvas = tk.Canvas(
             root,
             width=GRID_WIDTH * CELL_SIZE,
@@ -32,11 +39,10 @@ class SnakeGame:
         start_x = GRID_WIDTH // 2
         start_y = GRID_HEIGHT // 2
         self.snake = [(start_x, start_y)]
-        self.direction = (1, 0)  # moving right
+        self.direction = (1, 0)
 
         self.food = None
         self.place_food()
-
         self.draw()
 
         # Key bindings
@@ -49,8 +55,8 @@ class SnakeGame:
 
     def change_direction(self, dx, dy):
         current_dx, current_dy = self.direction
-        if (dx, dy) == (-current_dx, -current_dy):
-            return  # prevent reversing
+        if (dx, dy) == (-current_dx, -current_dy):  # prevent reversing
+            return
         self.direction = (dx, dy)
 
     def place_food(self):
@@ -68,19 +74,25 @@ class SnakeGame:
         new_head = ((head_x + dx) % GRID_WIDTH,
                     (head_y + dy) % GRID_HEIGHT)
 
-        # ❗ Losing condition: snake hits itself
+        # Losing condition: self collision
         if new_head in self.snake:
             self.game_over()
             return
 
-        # Eating food -> grow
+        # Eating food
         if new_head == self.food:
             self.snake.insert(0, new_head)
+
+            # Increase score
             self.score += 2
             self.update_score()
+
+            # Increase speed slightly (but stay above minimum)
+            self.speed = max(MIN_SPEED, self.speed - SPEED_INCREASE)
+
             self.place_food()
+
         else:
-            # Normal movement
             self.snake.insert(0, new_head)
             self.snake.pop()
 
@@ -113,7 +125,8 @@ class SnakeGame:
     def game_loop(self):
         self.move_snake()
         self.draw()
-        self.root.after(SPEED, self.game_loop)
+        self.root.after(self.speed, self.game_loop)
+
 
 if __name__ == "__main__":
     root = tk.Tk()
