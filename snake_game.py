@@ -1,21 +1,26 @@
 import tkinter as tk
 from tkinter import messagebox
 import random
-import threading
-import time
 
-# --- Optional sound support ---
+# ---- Optional short sound effects (Windows only) ----
 try:
     import winsound
     HAS_WINSOUND = True
 except ImportError:
     HAS_WINSOUND = False
 
+# ---- Background music with pygame ----
+try:
+    import pygame
+    HAS_PYGAME = True
+except ImportError:
+    HAS_PYGAME = False
+
 CELL_SIZE = 20
 GRID_WIDTH = 30
 GRID_HEIGHT = 20
 
-BASE_SPEED = 400
+BASE_SPEED = 400   # slower start
 MIN_SPEED = 80
 SPEED_INCREASE = 5
 
@@ -25,14 +30,21 @@ class SnakeGame:
         self.root = root
         self.root.title("Very Simple Snake")
 
+        # Game state flags
         self.game_running = False
-        self.music_running = True  # flag to control background music
+        self.music_initialized = False
+        self.music_playing = False
+
+        # Initialise music (but don't start it yet)
+        self.init_music()
+
+        # Score
+        self.score = 0
 
         # Start menu popup
         self.start_menu()
 
         # Scoreboard
-        self.score = 0
         self.score_label = tk.Label(root, text="Score: 0", font=("Arial", 14))
         self.score_label.pack()
 
@@ -54,44 +66,65 @@ class SnakeGame:
         self.root.bind("<Left>",  lambda e: self.change_direction(-1, 0))
         self.root.bind("<Right>", lambda e: self.change_direction(1, 0))
 
-        # Start music in background
-        threading.Thread(target=self.background_music, daemon=True).start()
+        # Make sure closing the window stops music too
+        self.root.protocol("WM_DELETE_WINDOW", self.quit_game)
 
-    # ---------- BASIC CHIPTUNE MUSIC ----------
+    # ---------- MUSIC CONTROL ----------
 
-    def background_music(self):
-        """Very simple looping 8-bit-style beeping melody."""
-        if not HAS_WINSOUND:
+    def init_music(self):
+        """Initialise pygame mixer and load background music safely."""
+        if not HAS_PYGAME:
+            print("pygame not available, background music disabled.")
             return
 
-        # A simple melody pattern (Hz + ms)
-        melody = [
-            (600, 120), (800, 120), (900, 120), (800, 120),
-            (600, 120), (800, 120), (900, 120), (800, 120)
-        ]
+        try:
+            pygame.mixer.init()
+            pygame.mixer.music.load(r"C:\Users\semoy\OneDrive\Documentos\Keele University\1.Foundations of Programming\Pokemon music.mp3")
+            pygame.mixer.music.set_volume(0.4)       # slightly lower volume
+            self.music_initialized = True
+            print("Music initialised successfully.")
+        except Exception as e:
+            print("Could not initialise music:", e)
+            self.music_initialized = False
 
-        while self.music_running:
-            for freq, dur in melody:
-                if not self.music_running:
-                    break
-                winsound.Beep(freq, dur)
-                time.sleep(0.02)  # tiny pause between notes
+    def start_music(self):
+        """Start looping background music."""
+        if self.music_initialized and not self.music_playing:
+            try:
+                pygame.mixer.music.play(-1)  # loop forever
+                self.music_playing = True
+                print("Music started.")
+            except Exception as e:
+                print("Could not start music:", e)
 
-    # ---------- SOUNDS ----------
+    def stop_music(self):
+        """Stop background music."""
+        if self.music_initialized and self.music_playing:
+            try:
+                pygame.mixer.music.stop()
+                pygame.mixer.quit()
+            except Exception as e:
+                print("Error stopping music:", e)
+            finally:
+                self.music_playing = False
+                self.music_initialized = False
+                print("Music stopped.")
+
+    # ---------- SIMPLE EFFECTS (optional) ----------
 
     def play_eat_sound(self):
         if HAS_WINSOUND:
-            winsound.Beep(1000, 80)
+            winsound.Beep(1000, 70)
         else:
             self.root.bell()
 
     def play_game_over_sound(self):
         if HAS_WINSOUND:
-            winsound.Beep(300, 300)
+            winsound.Beep(300, 250)
         else:
             self.root.bell()
 
-    # ---------- MENUS ----------
+    # ---------- MENUS & EXIT ----------
 
     def start_menu(self):
         start_win = tk.Toplevel(self.root)
@@ -101,19 +134,24 @@ class SnakeGame:
 
         tk.Label(start_win, text="Welcome to Snake!", font=("Arial", 12)).pack(pady=10)
 
-        tk.Button(start_win, text="Start Game", width=15,
-                  command=lambda: self.start_game(start_win)).pack(pady=5)
-        tk.Button(start_win, text="Exit", width=15,
-                  command=self.quit_game).pack()
+        tk.Button(
+            start_win, text="Start Game", width=15,
+            command=lambda: self.start_game(start_win)
+        ).pack(pady=5)
 
-    def quit_game(self):
-        self.music_running = False
-        self.root.destroy()
+        tk.Button(
+            start_win, text="Exit", width=15,
+            command=self.quit_game
+        ).pack()
 
     def start_game(self, popup):
         popup.destroy()
         self.game_running = True
         self.root.focus_set()
+
+        # Start background music when the game truly starts
+        self.start_music()
+
         self.game_loop()
 
     def game_over_menu(self):
@@ -125,13 +163,21 @@ class SnakeGame:
         go.geometry("240x150")
         go.grab_set()
 
-        tk.Label(go, text=f"Game Over!\nFinal Score: {self.score}",
-                 font=("Arial", 12)).pack(pady=10)
+        tk.Label(
+            go,
+            text=f"Game Over!\nFinal Score: {self.score}",
+            font=("Arial", 12)
+        ).pack(pady=10)
 
-        tk.Button(go, text="Try Again", width=15,
-                  command=lambda: self.restart(go)).pack(pady=5)
-        tk.Button(go, text="Exit", width=15,
-                  command=self.quit_game).pack(pady=5)
+        tk.Button(
+            go, text="Try Again", width=15,
+            command=lambda: self.restart(go)
+        ).pack(pady=5)
+
+        tk.Button(
+            go, text="Exit", width=15,
+            command=self.quit_game
+        ).pack(pady=5)
 
     def restart(self, popup):
         popup.destroy()
@@ -139,6 +185,12 @@ class SnakeGame:
         self.game_running = True
         self.root.focus_set()
         self.game_loop()
+
+    def quit_game(self):
+        """Cleanly exit game + stop music."""
+        self.game_running = False
+        self.stop_music()
+        self.root.destroy()
 
     # ---------- GAME LOGIC ----------
 
@@ -177,10 +229,12 @@ class SnakeGame:
         new_head = ((hx + dx) % GRID_WIDTH,
                     (hy + dy) % GRID_HEIGHT)
 
+        # Self-collision
         if new_head in self.snake:
             self.game_over_menu()
             return
 
+        # Eating food
         if new_head == self.food:
             self.snake.insert(0, new_head)
 
