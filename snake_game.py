@@ -12,6 +12,14 @@ class SnakeGame:
         self.root = root
         self.root.title("Very Simple Snake")
 
+        # Score variable
+        self.score = 0
+
+        # Scoreboard label
+        self.score_label = tk.Label(root, text=f"Score: {self.score}", font=("Arial", 14))
+        self.score_label.pack()
+
+        # Game canvas
         self.canvas = tk.Canvas(
             root,
             width=GRID_WIDTH * CELL_SIZE,
@@ -20,7 +28,7 @@ class SnakeGame:
         )
         self.canvas.pack()
 
-        # Starting snake
+        # Starting snake position
         start_x = GRID_WIDTH // 2
         start_y = GRID_HEIGHT // 2
         self.snake = [(start_x, start_y)]
@@ -29,10 +37,9 @@ class SnakeGame:
         self.food = None
         self.place_food()
 
-        # Draw initial state
         self.draw()
 
-        # Bind keys
+        # Key bindings
         self.root.bind("<Up>",    lambda e: self.change_direction(0, -1))
         self.root.bind("<Down>",  lambda e: self.change_direction(0, 1))
         self.root.bind("<Left>",  lambda e: self.change_direction(-1, 0))
@@ -43,7 +50,7 @@ class SnakeGame:
     def change_direction(self, dx, dy):
         current_dx, current_dy = self.direction
         if (dx, dy) == (-current_dx, -current_dy):
-            return  # can't reverse direction
+            return  # prevent reversing
         self.direction = (dx, dy)
 
     def place_food(self):
@@ -69,15 +76,20 @@ class SnakeGame:
         # Eating food -> grow
         if new_head == self.food:
             self.snake.insert(0, new_head)
+            self.score += 2
+            self.update_score()
             self.place_food()
         else:
-            # Move normally
+            # Normal movement
             self.snake.insert(0, new_head)
             self.snake.pop()
 
+    def update_score(self):
+        self.score_label.config(text=f"Score: {self.score}")
+
     def game_over(self):
-        messagebox.showinfo("Game Over", "You lost!")
-        self.root.destroy()  # closes window and exits program
+        messagebox.showinfo("Game Over", f"You lost!\nFinal Score: {self.score}")
+        self.root.destroy()
 
     def draw_cell(self, x, y, color):
         x1 = x * CELL_SIZE
@@ -93,7 +105,7 @@ class SnakeGame:
         fx, fy = self.food
         self.draw_cell(fx, fy, "red")
 
-        # Draw snake (head is lime, body is green)
+        # Draw snake
         for i, (x, y) in enumerate(self.snake):
             color = "lime" if i == 0 else "green"
             self.draw_cell(x, y, color)
