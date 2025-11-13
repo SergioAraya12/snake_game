@@ -1,11 +1,11 @@
 import tkinter as tk
+from tkinter import messagebox
 import random
 
-# --- Configuration ---
 CELL_SIZE = 20
-GRID_WIDTH = 30   # number of cells horizontally
-GRID_HEIGHT = 20  # number of cells vertically
-SPEED = 100       # milliseconds between moves
+GRID_WIDTH = 30
+GRID_HEIGHT = 20
+SPEED = 100  # ms per move
 
 class SnakeGame:
     def __init__(self, root):
@@ -20,16 +20,16 @@ class SnakeGame:
         )
         self.canvas.pack()
 
-        # Snake starts in the middle
+        # Starting snake
         start_x = GRID_WIDTH // 2
         start_y = GRID_HEIGHT // 2
         self.snake = [(start_x, start_y)]
-        self.direction = (1, 0)  # moving to the right initially
+        self.direction = (1, 0)  # moving right
 
         self.food = None
         self.place_food()
 
-        # Draw everything once
+        # Draw initial state
         self.draw()
 
         # Bind keys
@@ -38,14 +38,12 @@ class SnakeGame:
         self.root.bind("<Left>",  lambda e: self.change_direction(-1, 0))
         self.root.bind("<Right>", lambda e: self.change_direction(1, 0))
 
-        # Start game loop
         self.game_loop()
 
     def change_direction(self, dx, dy):
-        # Optional: avoid reversing directly into yourself
         current_dx, current_dy = self.direction
         if (dx, dy) == (-current_dx, -current_dy):
-            return
+            return  # can't reverse direction
         self.direction = (dx, dy)
 
     def place_food(self):
@@ -54,24 +52,32 @@ class SnakeGame:
             y = random.randint(0, GRID_HEIGHT - 1)
             if (x, y) not in self.snake:
                 self.food = (x, y)
-                break
+                return
 
     def move_snake(self):
         head_x, head_y = self.snake[0]
         dx, dy = self.direction
 
-        # Move head; wrap around edges
         new_head = ((head_x + dx) % GRID_WIDTH,
                     (head_y + dy) % GRID_HEIGHT)
 
-        # If we ate the food, grow and place new food
+        # ❗ Losing condition: snake hits itself
+        if new_head in self.snake:
+            self.game_over()
+            return
+
+        # Eating food -> grow
         if new_head == self.food:
-            self.snake.insert(0, new_head)  # grow (no tail pop)
+            self.snake.insert(0, new_head)
             self.place_food()
         else:
-            # Normal move: add new head, remove tail
+            # Move normally
             self.snake.insert(0, new_head)
             self.snake.pop()
+
+    def game_over(self):
+        messagebox.showinfo("Game Over", "You lost!")
+        self.root.destroy()  # closes window and exits program
 
     def draw_cell(self, x, y, color):
         x1 = x * CELL_SIZE
@@ -87,7 +93,7 @@ class SnakeGame:
         fx, fy = self.food
         self.draw_cell(fx, fy, "red")
 
-        # Draw snake
+        # Draw snake (head is lime, body is green)
         for i, (x, y) in enumerate(self.snake):
             color = "lime" if i == 0 else "green"
             self.draw_cell(x, y, color)
@@ -99,5 +105,5 @@ class SnakeGame:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    game = SnakeGame(root)
+    SnakeGame(root)
     root.mainloop()
