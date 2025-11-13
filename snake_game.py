@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import random
+import os
 
 # ---- Optional short sound effects (Windows only) ----
 try:
@@ -24,6 +25,9 @@ BASE_SPEED = 400   # slower start
 MIN_SPEED = 80
 SPEED_INCREASE = 5
 
+# Path to this script's folder
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+
 
 class SnakeGame:
     def __init__(self, root):
@@ -34,6 +38,7 @@ class SnakeGame:
         self.game_running = False
         self.music_initialized = False
         self.music_playing = False
+        self.paused = False          # pause flag
 
         # Initialise music (but don't start it yet)
         self.init_music()
@@ -47,6 +52,11 @@ class SnakeGame:
         # Scoreboard
         self.score_label = tk.Label(root, text="Score: 0", font=("Arial", 14))
         self.score_label.pack()
+
+        # Pause / Resume button
+        self.pause_button = tk.Button(root, text="Pause", width=10,
+                                      command=self.toggle_pause)
+        self.pause_button.pack(pady=5)
 
         # Canvas
         self.canvas = tk.Canvas(
@@ -65,6 +75,8 @@ class SnakeGame:
         self.root.bind("<Down>",  lambda e: self.change_direction(0, 1))
         self.root.bind("<Left>",  lambda e: self.change_direction(-1, 0))
         self.root.bind("<Right>", lambda e: self.change_direction(1, 0))
+        self.root.bind("p",       lambda e: self.toggle_pause())
+        self.root.bind("P",       lambda e: self.toggle_pause())
 
         # Make sure closing the window stops music too
         self.root.protocol("WM_DELETE_WINDOW", self.quit_game)
@@ -80,7 +92,7 @@ class SnakeGame:
         try:
             pygame.mixer.init()
             pygame.mixer.music.load(r"C:\Users\semoy\OneDrive\Documentos\Keele University\1.Foundations of Programming\Pokemon music.mp3")
-            pygame.mixer.music.set_volume(0.4)       # slightly lower volume
+            pygame.mixer.music.set_volume(0.4)
             self.music_initialized = True
             print("Music initialised successfully.")
         except Exception as e:
@@ -147,6 +159,8 @@ class SnakeGame:
     def start_game(self, popup):
         popup.destroy()
         self.game_running = True
+        self.paused = False
+        self.pause_button.config(text="Pause")
         self.root.focus_set()
 
         # Start background music when the game truly starts
@@ -183,6 +197,8 @@ class SnakeGame:
         popup.destroy()
         self.reset_game()
         self.game_running = True
+        self.paused = False
+        self.pause_button.config(text="Pause")
         self.root.focus_set()
         self.game_loop()
 
@@ -192,12 +208,31 @@ class SnakeGame:
         self.stop_music()
         self.root.destroy()
 
+    # ---------- PAUSE LOGIC ----------
+
+    def toggle_pause(self):
+        """Toggle paused state and update button text."""
+        # If the game hasn't started yet, ignore
+        if not self.game_running:
+            return
+
+        self.paused = not self.paused
+        if self.paused:
+            self.pause_button.config(text="Resume")
+        else:
+            self.pause_button.config(text="Pause")
+
     # ---------- GAME LOGIC ----------
 
     def reset_game(self):
         self.score = 0
         self.score_label.config(text="Score: 0")
         self.speed = BASE_SPEED
+
+        # Reset pause state
+        self.paused = False
+        if hasattr(self, "pause_button"):
+            self.pause_button.config(text="Pause")
 
         start_x = GRID_WIDTH // 2
         start_y = GRID_HEIGHT // 2
@@ -273,8 +308,10 @@ class SnakeGame:
 
     def game_loop(self):
         if self.game_running:
-            self.move_snake()
-            self.draw()
+            if not self.paused:
+                self.move_snake()
+                self.draw()
+            # Even if paused, keep scheduling the loop
             self.root.after(self.speed, self.game_loop)
 
 
